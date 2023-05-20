@@ -61,23 +61,26 @@ private:
 };
 
 void do_work() {
-    for (int i = 0; i < 1000000000; ++i) {}  // simulate work by running an empty loop
+    for (int i = 0; i < 500000000; ++i) {}  // simulate work by running an empty loop
     std::cout << "Done a unit of work\n";
 }
 
 int main() {
     std::cout << "Single thread: start\n";
     auto start = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 4; ++i) do_work();
+    for (int i = 0; i < 10; ++i) do_work();
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
     std::cout << "Single thread: done in " << elapsed.count() << " seconds.\n";
     
     std::cout << "Thread pool: start\n";
-    ThreadHive pool(4);
-    start = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 4; ++i) pool.enqueue(do_work);
-    pool.~ThreadHive(); // joins all threads to ensure tasks are completed
+    // ThreadHive destructor will automatically be called when the object goes out of scope
+    // Explicitly calling destructor caused double free error
+    {
+        ThreadHive pool(4);
+        start = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < 10; ++i) pool.enqueue(do_work);
+    }
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     std::cout << "Thread pool: done in " << elapsed.count() << " seconds.\n";
