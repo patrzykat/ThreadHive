@@ -9,11 +9,7 @@ public:
     ThreadHive(size_t numThreads) {
         stop = false;
         pthread_mutex_init(&queue_mutex, nullptr);
-        for (size_t i = 0; i < numThreads; ++i) {
-            pthread_t thread;
-            pthread_create(&thread, nullptr, &ThreadHive::perform_task, this);
-            workers.push_back(thread);
-        }
+        resize(numThreads);
     }
 
     ~ThreadHive() {
@@ -30,6 +26,27 @@ public:
             throw std::runtime_error("enqueue on stopped ThreadPool");
         }
         tasks.push(std::move(task));
+        pthread_mutex_unlock(&queue_mutex);
+    }
+
+    void resize(size_t new_size) {
+        if (new_size == workers.size()) return;
+
+        pthread_mutex_lock(&queue_mutex);
+        if (new_size > workers.size()) {
+            for (size_t i = workers.size(); i < new_size; ++i) {
+                pthread_t thread;
+                pthread_create(&thread, nullptr, &ThreadHive::perform_task, this);
+                workers.push_back(thread);
+            }
+        } else {
+            stop = true;
+            for (size_t i = new_size; i < workers.size(); ++i) {
+                pthread_join(workers[i], nullptr);
+            }
+            workers.resize(new_size);
+            stop = false;
+        }
         pthread_mutex_unlock(&queue_mutex);
     }
 
@@ -77,9 +94,10 @@ int main() {
     // ThreadHive destructor will automatically be called when the object goes out of scope
     // Explicitly calling destructor caused double free error
     {
-        ThreadHive pool(4);
+        ThreadHive pool(1);
+        pool.resize(4);
         start = std::chrono::high_resolution_clock::now();
-        for (int i = 0; i < 10; ++i) pool.enqueue(do_work);
+        for (int i = 0; i < 12; ++i) pool.enqueue(do_work);
     }
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
