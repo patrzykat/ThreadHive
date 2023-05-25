@@ -1,3 +1,5 @@
 .vscode/
 interactive_tests
 automated_tests
+ThreadHive.o
+libThreadHive.a
