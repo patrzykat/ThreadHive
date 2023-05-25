@@ -80,10 +80,12 @@ void* ThreadHive::perform_task(void* arg) {
         pthread_mutex_unlock(&(pool->queue_mutex));
         if(task) {
             task();
+            pthread_mutex_lock(&(pool->queue_mutex));
             pool->active_tasks--;
             if (pool->active_tasks == 0) {
                 pthread_cond_signal(&(pool->condition));
             }
+            pthread_mutex_unlock(&(pool->queue_mutex));
         }
     }
 }
