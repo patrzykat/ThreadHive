@@ -60,11 +60,25 @@ void test_thread_pool_with_return() {
     std::cout << "----------------------------------------\n";
 }
 
+void test_wait_all() {
+    std::cout << "Thread pool wait_all(): start\n";
+    auto start = std::chrono::high_resolution_clock::now();
+    ThreadHive pool(1);
+    pool.resize(4);
+    for (int i = 0; i < 12; ++i) pool.enqueue(do_work);
+    pool.wait_all();
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    std::cout << "Thread pool wait_all(): done in " << elapsed.count() << " seconds.\n";
+    std::cout << "----------------------------------------\n";
+}
+
 int main() {
 
     test_single_thread();
     test_thread_pool();
     test_thread_pool_with_return();
+    test_wait_all();
 
     return 0;
 }

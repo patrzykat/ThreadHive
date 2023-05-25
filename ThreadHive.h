@@ -9,11 +9,14 @@ public:
     ~ThreadHive();
     void enqueue(std::function<void()> task);
     void resize(size_t new_size);
+    void wait_all();
 
 private:
     std::vector<pthread_t> workers;
     std::queue<std::function<void()>> tasks;
     pthread_mutex_t queue_mutex;
+    pthread_cond_t condition;
+    size_t active_tasks;
     bool stop;
 
     static void* perform_task(void* arg);

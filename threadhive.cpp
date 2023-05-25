@@ -10,7 +10,9 @@
 
 ThreadHive::ThreadHive(size_t numThreads) {
     stop = false;
+    active_tasks = 0;
     pthread_mutex_init(&queue_mutex, nullptr);
+    pthread_cond_init(&condition, nullptr);
     resize(numThreads);
 }
 
@@ -18,6 +20,7 @@ ThreadHive::~ThreadHive() {
     stop = true;
     for (pthread_t worker : workers)
         pthread_join(worker, nullptr);
+    pthread_cond_destroy(&condition);
     pthread_mutex_destroy(&queue_mutex);
 }
 
@@ -28,6 +31,7 @@ void ThreadHive::enqueue(std::function<void()> task) {
         throw std::runtime_error("enqueue on stopped ThreadPool");
     }
     tasks.push(std::move(task));
+    active_tasks++;
     pthread_mutex_unlock(&queue_mutex);
 }
 
@@ -52,6 +56,14 @@ void ThreadHive::resize(size_t new_size) {
     pthread_mutex_unlock(&queue_mutex);
 }
 
+void ThreadHive::wait_all() {
+    pthread_mutex_lock(&queue_mutex);
+    while (active_tasks > 0) {
+        pthread_cond_wait(&condition, &queue_mutex);
+    }
+    pthread_mutex_unlock(&queue_mutex);
+}
+
 void* ThreadHive::perform_task(void* arg) {
     ThreadHive* pool = (ThreadHive*) arg;
     while (true) {
@@ -64,78 +76,14 @@ void* ThreadHive::perform_task(void* arg) {
         if(!pool->tasks.empty()){
             task = std::move(pool->tasks.front());
             pool->tasks.pop();
+            pool->active_tasks--;
         }
         pthread_mutex_unlock(&(pool->queue_mutex));
         if(task) {
             task();
+            if (pool->active_tasks == 0) {
+                pthread_cond_signal(&(pool->condition));
+            }
         }
     }
 }
-
-// void do_work() {
-//     for (int i = 0; i < 200000000; ++i) {}
-//     // std::cout << "Done a unit of work\n";
-// }
-
-// void do_work_with_return(int &output) {
-//     std::srand(std::time(nullptr));
-//     int num = std::rand();
-//     for (int i = 0; i < 200000000; ++i) {}  // simulate work by running an empty loop
-//     // std::cout << "Done a unit of work\n";
-//     output = num;
-// }
-
-// void test_single_thread() {
-//     std::cout << "Single thread: start\n";
-//     auto start = std::chrono::high_resolution_clock::now();
-//     for (int i = 0; i < 12; ++i) do_work();
-//     auto end = std::chrono::high_resolution_clock::now();
-//     std::chrono::duration<double> elapsed = end - start;
-//     std::cout << "Single thread: done in " << elapsed.count() << " seconds.\n";
-//     std::cout << "----------------------------------------\n";
-// }
-
-// void test_thread_pool() {
-//     std::cout << "Thread pool: start\n";
-//     auto start = std::chrono::high_resolution_clock::now();
-//     // ThreadHive destructor will automatically be called when the object goes out of scope
-//     // Explicitly calling destructor caused double free error
-//     {
-//         ThreadHive pool(1);
-//         pool.resize(4);
-//         for (int i = 0; i < 12; ++i) pool.enqueue(do_work);
-//     }
-//     auto end = std::chrono::high_resolution_clock::now();
-//     std::chrono::duration<double> elapsed = end - start;
-//     std::cout << "Thread pool: done in " << elapsed.count() << " seconds.\n";
-//     std::cout << "----------------------------------------\n";
-// }
-
-// void test_thread_pool_with_return() {
-//     std::cout << "Thread pool with return: start\n";
-//     auto start = std::chrono::high_resolution_clock::now();
-//     std::vector<int> results(12);
-//     // ThreadHive destructor will automatically be called when the object goes out of scope
-//     // Explicitly calling destructor caused double free error
-//     {
-//         ThreadHive pool(4);
-//         for (int i = 0; i < 12; ++i) pool.enqueue([&results, i](){ do_work_with_return(results[i]); });
-//     }
-//     auto end = std::chrono::high_resolution_clock::now();
-//     std::chrono::duration<double> elapsed = end - start;
-//     std::cout << "Thread pool with return: done in " << elapsed.count() << " seconds.\n";
-
-//     std::cout << "Results:\n";
-//     for (int i = 0; i < 12; ++i) std::cout << results[i] << " ";
-//     std::cout << "\n";
-//     std::cout << "----------------------------------------\n";
-// }
-
-// int main() {
-
-//     test_single_thread();
-//     test_thread_pool();
-//     test_thread_pool_with_return();
-
-//     return 0;
-// }
