@@ -76,11 +76,11 @@ void* ThreadHive::perform_task(void* arg) {
         if(!pool->tasks.empty()){
             task = std::move(pool->tasks.front());
             pool->tasks.pop();
-            pool->active_tasks--;
         }
         pthread_mutex_unlock(&(pool->queue_mutex));
         if(task) {
             task();
+            pool->active_tasks--;
             if (pool->active_tasks == 0) {
                 pthread_cond_signal(&(pool->condition));
             }
