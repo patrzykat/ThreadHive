@@ -1,3 +1,6 @@
+#ifndef THREADHIVE_H
+#define THREADHIVE_H
+
 #include <queue>
 #include <vector>
 #include <pthread.h>
@@ -21,3 +24,5 @@ private:
 
     static void* perform_task(void* arg);
 };
+
+#endif // THREADHIVE_H
